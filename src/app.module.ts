@@ -1,11 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { ProductsModule } from './products/products.module';
-import { OrdersModule } from './orders/orders.module';
-import { PaymentsModule } from './payments/payments.module';
+import { StreamsModule } from './streams/streams.module';
+import { IndexerModule } from './indexer/indexer.module';
 import { StellarModule } from './stellar/stellar.module';
-import { WebhookModule } from './webhook/webhook.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
@@ -16,12 +13,9 @@ import { MonitoringModule } from './monitoring/monitoring.module';
       autoLoadEntities: true,
       synchronize: process.env.NODE_ENV !== 'production',
     }),
-    AuthModule,
-    ProductsModule,
-    OrdersModule,
-    PaymentsModule,
+    StreamsModule,
+    IndexerModule,
     StellarModule,
-    WebhookModule,
     MonitoringModule,
   ],
 })
