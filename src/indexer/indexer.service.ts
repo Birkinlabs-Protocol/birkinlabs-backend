@@ -54,49 +54,134 @@ export class IndexerService implements OnApplicationBootstrap {
       const eventName = scValToNative(event.topic[0]) as string;
       const streamId = String(scValToNative(event.topic[1]) as bigint);
       const txHash = event.txHash;
+      const ledger = event.ledger;
 
       switch (eventName) {
         case 'CREATED': {
-          const [sender, recipient, deposit, ratePerSecond, startTime, stopTime] =
-            scValToNative(event.value) as [string, string, bigint, bigint, bigint, bigint];
+          const raw = scValToNative(event.value) as any[];
+          const sender = String(raw[0]);
+          const recipient = String(raw[1]);
+          const token = String(raw[2] ?? '');
+          const deposit = String(raw[3] ?? 0);
+          const ratePerSecond = String(raw[4] ?? 0);
+          const startTime = String(raw[5] ?? 0);
+          const stopTime = String(raw[6] ?? 0);
+          const cliffTime = String(raw[7] ?? 0);
+          const title = String(raw[8] ?? '');
 
           await this.streamsService.upsert({
             stream_id: streamId,
             sender,
             recipient,
-            token: '',
-            deposit: String(deposit),
-            rate_per_second: String(ratePerSecond),
-            start_time: String(startTime),
-            stop_time: String(stopTime),
+            token,
+            title,
+            deposit,
+            rate_per_second: ratePerSecond,
+            start_time: startTime,
+            stop_time: stopTime,
+            cliff_time: cliffTime,
             tx_hash: txHash,
+            ledger,
           });
-          this.logger.log(`Stream ${streamId} created`);
+          this.logger.log(`Stream ${streamId} created (title: "${title}")`);
           break;
         }
 
         case 'WITHDRAW': {
-          const [, amount] = scValToNative(event.value) as [string, bigint];
-          await this.streamsService.recordWithdrawal(streamId, String(amount), txHash);
-          this.logger.log(`Stream ${streamId} withdrawal: ${amount}`);
+          const [recipient, amount] = scValToNative(event.value) as [string, bigint];
+          await this.streamsService.recordWithdrawal(
+            streamId,
+            String(recipient),
+            String(amount),
+            txHash,
+            ledger,
+          );
+          this.logger.log(`Stream ${streamId} withdrawal: ${amount} by ${recipient}`);
+          break;
+        }
+
+        case 'TOP_UP': {
+          const [sender, addedAmount, newStopTime] = scValToNative(event.value) as [
+            string,
+            bigint,
+            bigint,
+          ];
+          await this.streamsService.recordTopUp(
+            streamId,
+            String(sender),
+            String(addedAmount),
+            String(newStopTime),
+            txHash,
+            ledger,
+          );
+          this.logger.log(`Stream ${streamId} topped up by ${addedAmount} by ${sender}`);
+          break;
+        }
+
+        case 'TRANSFER': {
+          const [oldRecipient, newRecipient] = scValToNative(event.value) as [string, string];
+          await this.streamsService.recordRecipientTransfer(
+            streamId,
+            String(oldRecipient),
+            String(newRecipient),
+            txHash,
+            ledger,
+          );
+          this.logger.log(
+            `Stream ${streamId} recipient transferred from ${oldRecipient} to ${newRecipient}`,
+          );
           break;
         }
 
         case 'CANCEL': {
-          await this.streamsService.updateStatus(streamId, 'Cancelled', txHash);
+          await this.streamsService.updateStatus(
+            streamId,
+            'Cancelled',
+            'CANCEL',
+            '',
+            txHash,
+            ledger,
+          );
           this.logger.log(`Stream ${streamId} cancelled`);
           break;
         }
 
         case 'PAUSED': {
-          await this.streamsService.updateStatus(streamId, 'Paused', txHash);
+          await this.streamsService.updateStatus(
+            streamId,
+            'Paused',
+            'PAUSED',
+            '',
+            txHash,
+            ledger,
+          );
           this.logger.log(`Stream ${streamId} paused`);
           break;
         }
 
         case 'RESUMED': {
-          await this.streamsService.updateStatus(streamId, 'Active', txHash);
+          await this.streamsService.updateStatus(
+            streamId,
+            'Active',
+            'RESUMED',
+            '',
+            txHash,
+            ledger,
+          );
           this.logger.log(`Stream ${streamId} resumed`);
+          break;
+        }
+
+        case 'COMPLETE': {
+          await this.streamsService.updateStatus(
+            streamId,
+            'Completed',
+            'COMPLETE',
+            '',
+            txHash,
+            ledger,
+          );
+          this.logger.log(`Stream ${streamId} completed`);
           break;
         }
 
@@ -104,7 +189,7 @@ export class IndexerService implements OnApplicationBootstrap {
           break;
       }
     } catch (err) {
-      this.logger.error(`Failed to handle event`, err?.message);
+      this.logger.error(`Failed to handle event: ${err?.message}`);
     }
   }
 }
