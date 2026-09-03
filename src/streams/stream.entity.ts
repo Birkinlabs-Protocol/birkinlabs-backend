@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export type StreamStatus = 'Active' | 'Paused' | 'Cancelled' | 'Completed';
 
@@ -8,13 +8,18 @@ export class Stream {
   stream_id: string;
 
   @Column()
+  @Index()
   sender: string;
 
   @Column()
+  @Index()
   recipient: string;
 
-  @Column()
+  @Column({ default: '' })
   token: string;
+
+  @Column({ default: '' })
+  title: string;
 
   @Column('bigint')
   deposit: string;
@@ -29,9 +34,13 @@ export class Stream {
   stop_time: string;
 
   @Column('bigint', { default: '0' })
+  cliff_time: string;
+
+  @Column('bigint', { default: '0' })
   withdrawn: string;
 
   @Column({ default: 'Active' })
+  @Index()
   status: StreamStatus;
 
   @Column({ nullable: true })
